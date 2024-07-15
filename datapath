@@ -1,115 +1,141 @@
 library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.STD_LOGIC_ARITH.ALL;
-use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.STD_LOGIC_1164.all;
+use IEEE.NUMERIC_STD.all;
 
 entity Datapath is
-    Port (
-        CLK: in std_logic;  -- Sinal de clock
-        RESET: in std_logic;  -- Sinal de reset geral
-        DR_TecladoAndar : in std_logic_vector(2 downto 0);  -- 3 bits para representar até 7 andares
-        DR_TecladoQuarto : in std_logic_vector(3 downto 0); -- 4 bits para representar até 15 quartos
-        DR_Porta: in std_logic;  -- Sinal indicando se a porta está fechada
-        DR_ENVIAR: in std_logic;  -- Sinal para enviar a cápsula
-        DR_CodigoLiberação : in std_logic_vector(2 downto 0); -- Código de liberação em 3 bits
-        DR_Reset : in std_logic;  -- Sinal de reset do sistema
-        DR_Reset_Emerg : in std_logic;  -- Sinal de reset da emergência
-        DR_Emerg_SigOUT : out std_logic;  -- Sinal de emergência
-        DR_Tecnico : out std_logic;  -- Sinal para chamar o técnico
-        DR_PortaAberta : out std_logic;  -- Sinal indicando que a porta está aberta
-        DR_PortaFechada : out std_logic;  -- Sinal indicando que a porta está fechada
-        DR_CHEGOU : out std_logic  -- Sinal indicando que a cápsula chegou ao destino
+    port (
+        DP_Clock : in std_logic;
+        DP_Reset : in std_logic;
+        DP_Reset_Emerg : in std_logic;
+        DP_TecladoAndar : in std_logic_vector(2 downto 0);
+        DP_TecladoQuarto : in std_logic_vector(3 downto 0);
+        DP_Porta : in std_logic;
+        DP_ENVIAR : in std_logic;
+        DP_CodigoLiberacao : in std_logic_vector(2 downto 0);
+        DP_SensorPeso : in std_logic_vector(8 downto 0);
+        DP_Temp_Start : in std_logic;
+        DP_Temp_Reset : in std_logic;
+        DP_Emerg_Start : in std_logic;
+        DR_Emerg_SigOUT : out std_logic;
+        DR_Tecnico : out std_logic;
+        DR_PortaAberta : out std_logic;
+        DR_PortaFechada : out std_logic;
+        DR_CHEGOU : out std_logic
     );
-end Datapath;
+end entity;
 
-architecture Behavioral of Datapath is
+architecture arch of Datapath is
 
-    -- Declaração de sinais internos
-    signal current_andar : std_logic_vector(2 downto 0) := "000";  -- Armazena o andar atual
-    signal current_quarto : std_logic_vector(3 downto 0) := "0000";  -- Armazena o quarto atual
-    signal porta_fechada : std_logic := '0';  -- Indica se a porta está fechada
-    signal obstrucao : std_logic := '0';  -- Indica obstrução
-    signal chegada : std_logic := '0';  -- Indica se a cápsula chegou ao destino
-    signal codigo_correto : std_logic := '0';  -- Verifica se o código de liberação está correto
-    signal contador : integer := 0;  -- Contador para simular o tempo de chegada
+    signal SIG_A_Destino : std_logic_vector(2 downto 0);
+    signal SIG_Q_Destino : std_logic_vector(3 downto 0);
+    signal SIG_A_Atual : std_logic_vector(2 downto 0);
+    signal SIG_Q_Atual : std_logic_vector(3 downto 0);
+    signal SIG_Tempo: std_logic;
+    signal SIG_Peso : std_logic_vector(8 downto 0);
+    signal SIG_CodigoLiberacao : std_logic_vector(2 downto 0);
+    signal SIG_Temporizador : std_logic;
+
+    component Temporizador is
+        generic (
+            frequencia : integer := 1000;
+            tempo : integer := 30 -- Valor da temporização em segundos
+        );
+        port (
+            TEMP_Clock : in std_logic;
+            TEMP_Start : in std_logic;
+            TEMP_Reset : in std_logic;
+            TEMP_SigOUT : out std_logic
+        );
+    end component;
+
+    component Registrador is
+        generic (
+            W : integer := 4 -- largura do registrador (número de bits)
+        );
+        port (
+            REG_Clock : in std_logic; -- clock
+            REG_Reset : in std_logic; -- reset
+            REG_Enable : in std_logic; -- enable
+            REG_DataIN : in std_logic_vector(W - 1 downto 0); -- dado de entrada
+            REG_DataOUT : out std_logic_vector(W - 1 downto 0) -- dado de saída
+        );
+    end component;
 
 begin
 
-    -- Processo principal que controla o datapath
-    process(CLK, RESET)
+    -- Temporizador para monitorar o tempo de entrega
+    INST_Temporizador : Temporizador
+    generic map(
+        frequencia => 1000,
+        tempo => 30)
+    port map(
+        TEMP_Clock => DP_Clock,
+        TEMP_Start => DP_Temp_Start,
+        TEMP_Reset => DP_Temp_Reset,
+        TEMP_SigOUT => SIG_Temporizador
+    );
+
+    -- Registradores para armazenar os valores de andar e quarto
+    INST_Reg_A_Destino : Registrador
+    generic map(W => 3)
+    port map(
+        REG_Clock => DP_Clock,
+        REG_Reset => DP_Reset,
+        REG_Enable => DP_ENVIAR,
+        REG_DataIN => DP_TecladoAndar,
+        REG_DataOUT => SIG_A_Destino
+    );
+
+    INST_Reg_Q_Destino : Registrador
+    generic map(W => 4)
+    port map(
+        REG_Clock => DP_Clock,
+        REG_Reset => DP_Reset,
+        REG_Enable => DP_ENVIAR,
+        REG_DataIN => DP_TecladoQuarto,
+        REG_DataOUT => SIG_Q_Destino
+    );
+
+    -- Comparadores para verificar a chegada ao destino
+    process(DP_Clock)
     begin
-        if RESET = '1' then  -- Reset geral do sistema
-            current_andar <= "000";
-            current_quarto <= "0000";
-            porta_fechada <= '0';
-            obstrucao <= '0';
-            chegada <= '0';
-            codigo_correto <= '0';
-            contador <= 0;
-            DR_Emerg_SigOUT <= '0';
-            DR_Tecnico <= '0';
-            DR_PortaAberta <= '0';
-            DR_PortaFechada <= '0';
-            DR_CHEGOU <= '0';
-        elsif rising_edge(CLK) then  -- Ações a serem realizadas em cada borda de subida do clock
-            if DR_Reset = '1' then  -- Reset específico do sistema
-                current_andar <= "000";
-                current_quarto <= "0000";
-                porta_fechada <= '0';
-                obstrucao <= '0';
-                chegada <= '0';
-                codigo_correto <= '0';
-                contador <= 0;
-                DR_Emerg_SigOUT <= '0';
-                DR_Tecnico <= '0';
-                DR_PortaAberta <= '0';
-                DR_PortaFechada <= '0';
+        if rising_edge(DP_Clock) then
+            if DP_Reset = '1' then
+                SIG_A_Atual <= (others => '0');
+                SIG_Q_Atual <= (others => '0');
                 DR_CHEGOU <= '0';
-            elsif DR_Reset_Emerg = '1' then  -- Reset da emergência
-                obstrucao <= '0';
-                DR_Emerg_SigOUT <= '0';
             else
-                if DR_ENVIAR = '1' then  -- Ação de envio da cápsula
-                    if DR_Porta = '1' then  -- Verifica se a porta está fechada
-                        porta_fechada <= '1';
-                        DR_PortaFechada <= '1';
-                        DR_PortaAberta <= '0';
-                        current_andar <= DR_TecladoAndar;  -- Armazena o andar digitado
-                        current_quarto <= DR_TecladoQuarto;  -- Armazena o quarto digitado
-                    else  -- Porta está aberta, não envia a cápsula
-                        porta_fechada <= '0';
-                        DR_PortaFechada <= '0';
-                        DR_PortaAberta <= '1';
-                    end if;
-                end if;
-
-                if porta_fechada = '1' and DR_ENVIAR = '1' then
-                    -- Simula a chegada após algum tempo
-                    if contador = 30 then
-                        if obstrucao = '0' then
-                            chegada <= '1';
-                            DR_CHEGOU <= '1';
-                        else
-                            DR_Emerg_SigOUT <= '1';
-                            DR_Tecnico <= '1';
-                        end if;
+                if DP_ENVIAR = '1' and DP_Porta = '1' then
+                    DR_PortaFechada <= '1';
+                    DR_PortaAberta <= '0';
+                    if SIG_A_Atual = SIG_A_Destino and SIG_Q_Atual = SIG_Q_Destino then
+                        DR_CHEGOU <= '1';
                     else
-                        contador <= contador + 1;  -- Incrementa o contador
+                        -- Lógica para mover a cápsula
+                        SIG_A_Atual <= SIG_A_Destino;
+                        SIG_Q_Atual <= SIG_Q_Destino;
                     end if;
-                end if;
-
-                if chegada = '1' then
-                    if DR_CodigoLiberação = "101" then  -- Exemplo de código correto
-                        codigo_correto <= '1';
-                    end if;
-                end if;
-
-                if contador > 30 and chegada = '0' then  -- Verifica se houve obstrução
-                    obstrucao <= '1';
-                    DR_Emerg_SigOUT <= '1';
+                else
+                    DR_PortaFechada <= '0';
+                    DR_PortaAberta <= '1';
+                    DR_CHEGOU <= '0';
                 end if;
             end if;
         end if;
     end process;
 
-end Behavioral;
+    -- Lógica para tratar emergência
+    process(DP_Clock)
+    begin
+        if rising_edge(DP_Clock) then
+            if DP_Reset_Emerg = '1' then
+                DR_Emerg_SigOUT <= '0';
+                DR_Tecnico <= '0';
+            elsif SIG_Temporizador = '1' then
+                DR_Emerg_SigOUT <= '1';
+                DR_Tecnico <= '1';
+            end if;
+        end if;
+    end process;
+
+end architecture;
