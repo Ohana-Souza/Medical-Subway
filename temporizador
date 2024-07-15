@@ -1,0 +1,51 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_ARITH.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
+-- Definição da entidade Temporizador
+entity Temporizador is
+    Port (
+        clk : in std_logic; -- Clock de 1 Hz
+        reset : in std_logic; -- Reset para o temporizador
+        start : in std_logic; -- Sinal para iniciar o temporizador
+        timeout : out std_logic -- Sinal de timeout
+    );
+end Temporizador;
+
+-- Arquitetura comportamental do temporizador
+architecture Behavioral of Temporizador is
+    -- Declaração do sinal interno 'contador' e 'temp_timeout'
+    signal contador : integer := 0; -- Contador inicializado em 0
+    signal temp_timeout : std_logic := '0'; -- Sinal de timeout inicializado em '0'
+begin
+    -- Processo sensível às bordas do clock e ao sinal de reset
+    process(clk, reset)
+    begin
+        if reset = '1' then
+            -- Se o sinal de reset for '1', resetar o contador e o sinal de timeout
+            contador <= 0;
+            temp_timeout <= '0';
+        elsif rising_edge(clk) then
+            -- Se houver uma borda de subida no clock
+            if start = '1' then
+                -- Se o sinal de start for '1', iniciar a contagem
+                if contador < 30 then
+                    -- Se o contador for menor que 30, incrementar o contador
+                    contador <= contador + 1;
+                    temp_timeout <= '0';
+                else
+                    -- Se o contador atingir 30, definir o sinal de timeout como '1'
+                    temp_timeout <= '1';
+                end if;
+            else
+                -- Se o sinal de start for '0', resetar o contador e o sinal de timeout
+                contador <= 0;
+                temp_timeout <= '0';
+            end if;
+        end if;
+    end process;
+
+    -- Atribuir o sinal temporário de timeout à saída de timeout
+    timeout <= temp_timeout;
+end Behavioral;
