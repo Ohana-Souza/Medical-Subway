@@ -1,0 +1,40 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_ARITH.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
+-- Definição da entidade Emergencia com suas portas de entrada e saída
+entity Emergencia is
+    Port (
+        clk                : in std_logic;          -- Sinal de clock
+        reset              : in std_logic;          -- Sinal de reset geral
+        DR_Reset_Emerg     : in std_logic;          -- Sinal de reset específico para emergências
+        DR_Tecnico         : out std_logic;         -- Sinal que indica que o técnico foi chamado
+        DR_Emerg_SigOUT    : out std_logic          -- Sinal que indica uma emergência
+    );
+end Emergencia;
+
+-- Arquitetura comportamental da entidade Emergencia
+architecture Behavioral of Emergencia is
+    signal emerg_flag : std_logic := '0';           -- Sinal interno que mantém o estado de emergência
+begin
+
+    -- Processo sensível ao clock e ao reset
+    process(clk, reset)
+    begin
+        if reset = '1' then
+            emerg_flag <= '0';                      -- Reseta o estado de emergência quando reset é acionado
+        elsif rising_edge(clk) then
+            if DR_Reset_Emerg = '1' then
+                emerg_flag <= '0';                  -- Reseta o estado de emergência quando DR_Reset_Emerg é acionado
+            elsif emerg_flag = '0' then
+                emerg_flag <= '1';                  -- Ativa o estado de emergência se ainda não estiver ativo
+            end if;
+        end if;
+    end process;
+
+    -- Atribuição das saídas conforme o estado de emergência
+    DR_Emerg_SigOUT <= emerg_flag;                  -- Sinaliza emergência se emerg_flag estiver ativo
+    DR_Tecnico <= emerg_flag;                       -- Chama o técnico se emerg_flag estiver ativo
+    
+end Behavioral;
