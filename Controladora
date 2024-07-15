@@ -1,0 +1,99 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity Controladora is
+    port (
+        FSM_Clock : in std_logic;
+        DR_TecladoAndar : in std_logic_vector(2 downto 0);
+        DR_TecladoQuarto : in std_logic_vector(3 downto 0);
+        DR_Porta : in std_logic;
+        DR_ENVIAR : in std_logic;
+        DR_CodigoLiberacao : in std_logic_vector(2 downto 0);
+        DR_Reset : in std_logic;
+        DR_Reset_Emerg : in std_logic;
+        DR_Emerg_SigOUT : out std_logic;
+        DR_Tecnico : out std_logic;
+        DR_PortaAberta : out std_logic;
+        DR_PortaFechada : out std_logic;
+        DR_CHEGOU : out std_logic
+    );
+end Controladora;
+
+architecture arch of Controladora is
+    -- Declaração dos estados
+    type state_type is (S0, S1, S2, S3, S4, S5, S6, S7, S8);
+    signal STATE, Next_STATE : state_type := S0;
+    signal timer : integer := 0;
+
+begin
+    -- Processo de transição de estados
+    process (FSM_Clock, DR_Reset, DR_Reset_Emerg)
+    begin
+        if DR_Reset = '1' then
+            STATE <= S0; -- Estado inicial após reset
+        elsif DR_Reset_Emerg = '1' then
+            STATE <= S0;
+        elsif rising_edge(FSM_Clock) then
+            STATE <= Next_STATE;
+        end if;
+    end process;
+
+    -- Processo combinacional das saídas e estados
+    process (STATE, DR_Porta, DR_ENVIAR, DR_CodigoLiberacao, timer)
+    begin
+        -- Inicialização das saídas
+        DR_Emerg_SigOUT <= '0';
+        DR_Tecnico <= '0';
+        DR_PortaAberta <= '0';
+        DR_PortaFechada <= '0';
+        DR_CHEGOU <= '0';
+
+        case STATE is
+            when S0 => -- Estado inicial
+                if DR_ENVIAR = '1' and DR_Porta = '1' then
+                    Next_STATE <= S1;
+                    DR_PortaFechada <= '1';
+                else
+                    DR_PortaAberta <= '1';
+                end if;
+
+            when S1 => -- Envio da cápsula
+                -- Simula o tempo de envio (por exemplo, 30 ciclos do clock)
+                if timer < 30 then
+                    timer <= timer + 1;
+                    Next_STATE <= S1;
+                else
+                    timer <= 0;
+                    Next_STATE <= S2;
+                end if;
+
+            when S2 => -- Chegada da cápsula
+                DR_CHEGOU <= '1';
+                if DR_CodigoLiberacao = "101" then -- Substitua "101" pelo código binário correto
+                    Next_STATE <= S3;
+                end if;
+
+            when S3 => -- Código de liberação correto
+                DR_Tecnico <= '1';
+                if DR_Reset = '1' then
+                    Next_STATE <= S0;
+                end if;
+
+            when S8 => -- Estado de emergência
+                DR_Emerg_SigOUT <= '1';
+                DR_Tecnico <= '1';
+                if DR_Reset_Emerg = '1' then
+                    Next_STATE <= S0;
+                end if;
+
+            when others => -- Estado de obstrução
+                if timer < 30 then
+                    timer <= timer + 1;
+                    Next_STATE <= STATE;
+                else
+                    Next_STATE <= S8;
+                end if;
+        end case;
+    end process;
+end arch;
