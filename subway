@@ -1,0 +1,116 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_ARITH.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
+entity subway is
+    Port (
+        DR_TecladoAndar : in std_logic_vector(2 downto 0);   -- 3 bits para representar até 7 andares
+        DR_TecladoQuarto : in std_logic_vector(3 downto 0);  -- 4 bits para representar até 15 quartos
+        DR_Porta: in std_logic;                               -- Entrada para estado da porta (aberta/fechada)
+        DR_ENVIAR: in std_logic;                              -- Entrada para acionar o envio da cápsula
+        DR_CodigoLiberação : in std_logic_vector(2 downto 0); -- 3 bits para código de liberação
+        DR_Reset : in std_logic;                              -- Entrada para resetar o sistema
+        DR_Reset_Emerg : in std_logic;                        -- Entrada para resetar emergência
+        
+        DR_Emerg_SigOUT : out std_logic;                      -- Saída de sinal de emergência
+        DR_Tecnico : out std_logic;                           -- Saída para indicar chamada de técnico
+        DR_PortaAberta : out std_logic;                       -- Saída para indicar que a porta está aberta
+        DR_PortaFechada : out std_logic;                      -- Saída para indicar que a porta está fechada
+        DR_CHEGOU : out std_logic                             -- Saída para indicar que a cápsula chegou ao destino
+    );
+end subway;
+
+architecture Behavioral of subway is
+
+    -- Sinais internos para controlar o funcionamento do sistema
+    signal porta_fechada : std_logic;         -- Indica se a porta está fechada
+    signal enviar_capsula : std_logic;        -- Indica se a cápsula deve ser enviada
+    signal chegou_destino : std_logic;        -- Indica se a cápsula chegou ao destino
+    signal codigo_correto : std_logic;        -- Indica se o código de liberação está correto
+    signal contador_tempo : integer := 0;     -- Contador para medir o tempo de envio
+    signal estado : std_logic_vector(2 downto 0) := "000"; -- Estado atual do sistema
+    
+    constant CODIGO_CORRETO : std_logic_vector(2 downto 0) := "101"; -- Exemplo de código correto
+
+begin
+
+    -- Processo principal que controla o sistema
+    process(DR_Porta, DR_ENVIAR, DR_CodigoLiberação, DR_Reset, DR_Reset_Emerg, estado, contador_tempo)
+    begin
+        -- Verifica o estado da porta e atualiza as saídas correspondentes
+        if DR_Porta = '1' then
+            porta_fechada <= '1';
+            DR_PortaFechada <= '1';
+            DR_PortaAberta <= '0';
+        else
+            porta_fechada <= '0';
+            DR_PortaFechada <= '0';
+            DR_PortaAberta <= '1';
+        end if;
+        
+        -- Verifica se a cápsula pode ser enviada (porta fechada e comando de enviar ativo)
+        if DR_ENVIAR = '1' and porta_fechada = '1' then
+            enviar_capsula <= '1';
+        else
+            enviar_capsula <= '0';
+        end if;
+        
+        -- Verificação de chegada ao destino e código de liberação
+        if chegou_destino = '1' then
+            DR_CHEGOU <= '1';
+            if DR_CodigoLiberação = CODIGO_CORRETO then
+                codigo_correto <= '1';
+            else
+                codigo_correto <= '0';
+            end if;
+        else
+            DR_CHEGOU <= '0';
+        end if;
+        
+        -- Contador de tempo para detectar obstruções no envio
+        if enviar_capsula = '1' then
+            if contador_tempo < 30000000 then  -- Aproximadamente 30 segundos
+                contador_tempo <= contador_tempo + 1;
+            else
+                DR_Emerg_SigOUT <= '1';  -- Sinaliza emergência se o tempo exceder 30 segundos
+                DR_Tecnico <= '1';       -- Chama técnico
+            end if;
+        else
+            contador_tempo <= 0;
+        end if;
+        
+        -- Reset do sistema
+        if DR_Reset = '1' then
+            estado <= "000";
+            contador_tempo <= 0;
+            DR_Emerg_SigOUT <= '0';
+            DR_Tecnico <= '0';
+        end if;
+        
+        -- Reset de emergência
+        if DR_Reset_Emerg = '1' then
+            DR_Emerg_SigOUT <= '0';
+        end if;
+        
+        -- Atualização do estado da cápsula
+        case estado is
+            when "000" => -- Estado inicial
+                if enviar_capsula = '1' then
+                    estado <= "001"; -- Enviando cápsula
+                end if;
+            when "001" => -- Enviando cápsula
+                if chegou_destino = '1' then
+                    estado <= "010"; -- Cápsula chegou
+                end if;
+            when "010" => -- Cápsula chegou
+                if codigo_correto = '1' then
+                    estado <= "000"; -- Retorna ao estado inicial
+                end if;
+            when others =>
+                estado <= "000"; -- Estado desconhecido, retorna ao inicial
+        end case;
+        
+    end process;
+
+end Behavioral;
