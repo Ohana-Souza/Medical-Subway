@@ -10,7 +10,7 @@ entity Emergencia is
         DR_Reset_Emerg : in std_logic; -- Sinal de reset de emergência
         DR_TecladoAndar : in std_logic_vector(2 downto 0); -- Andar de destino
         DR_TecladoQuarto : in std_logic_vector(3 downto 0); -- Quarto de destino
-        DR_CodigoLiberação : in std_logic_vector(2 downto 0); -- Código de liberação
+        DR_CodigoLiberacao : in std_logic_vector(2 downto 0); -- Código de Liberacao
         DR_Emerg_SigOUT : out std_logic; -- Sinal de emergência/obstrução
         DR_Tecnico : out std_logic; -- Sinal de técnico chamado
         DR_PortaAberta : out std_logic; -- Indicador de porta aberta
@@ -24,10 +24,10 @@ architecture arch of Emergencia is
     signal ESTADO : std_logic := '0'; -- Estado interno para controlar a saída de emergência
     signal TEMPORIZADOR : integer := 0; -- Temporizador para controle de tempo
     signal TEMPO_LIMITE : integer := 30000000; -- Limite de tempo (30 segundos, assumindo clock de 1 MHz)
-    signal CODIGO_CORRETO : std_logic_vector(2 downto 0) := "101"; -- Código de liberação predefinido
+    signal CODIGO_CORRETO : std_logic_vector(2 downto 0) := "101"; -- Código de Liberacao predefinido
 begin
     -- Processo para controlar o estado baseado nos sinais de entrada
-    process (DR_ENVIAR, DR_Porta, DR_Reset, DR_Reset_Emerg, DR_CodigoLiberação)
+    process (DR_ENVIAR, DR_Porta, DR_Reset, DR_Reset_Emerg, DR_CodigoLiberacao)
     begin
         if DR_Reset = '1' then
             -- Reset normal: zera os estados
@@ -65,13 +65,11 @@ begin
                 DR_Tecnico <= '1';
                 ESTADO <= '0'; -- Reseta o estado de envio
             end if;
-        elsif rising_edge(DR_CodigoLiberação) then
-            if DR_CodigoLiberação = CODIGO_CORRETO then
-                -- Código correto: sinaliza chegada e desativa emergência
-                DR_CHEGOU <= '1';
-                DR_Emerg_SigOUT <= '0';
-                DR_Tecnico <= '0';
-            end if;
+        elsif DR_CodigoLiberacao = CODIGO_CORRETO then
+            -- Código correto: sinaliza chegada e desativa emergência
+            DR_CHEGOU <= '1';
+            DR_Emerg_SigOUT <= '0';
+            DR_Tecnico <= '0';
         end if;
     end process;
 end arch;
