@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
-entity Subway is
+entity subway is
     port (
         DR_TecladoAndar       : in std_logic_vector(2 downto 0);  -- 3 bits para representar até 7 andares
         DR_TecladoQuarto      : in std_logic_vector(3 downto 0);  -- 4 bits para representar até 15 quartos por andar
@@ -20,7 +20,7 @@ entity Subway is
     );
 end entity;
 
-architecture Behavioral of Subway is
+architecture Behavioral of subway is
 
     signal Timer              : unsigned(29 downto 0);             -- Timer para 30 segundos (assumindo um clock de 1 MHz)
     signal CapsuleSent        : std_logic := '0';                  -- Sinaliza que a cápsula foi enviada
@@ -35,6 +35,9 @@ architecture Behavioral of Subway is
     constant ARRIVED          : std_logic_vector(1 downto 0) := "10";
     constant EMERGENCY        : std_logic_vector(1 downto 0) := "11";
 
+    -- Constante para código de liberação
+    constant LIBERATION_CODE  : std_logic_vector(2 downto 0) := "101"; -- Substitua por código real
+	 
 begin
 
     process (DR_ENVIAR, DR_Porta, DR_Reset, DR_Reset_Emerg, TimerExpired, CapsuleArrived, DR_CodigoLiberacao)
@@ -75,7 +78,7 @@ begin
                 end if;
 
             when ARRIVED =>
-                if DR_CodigoLiberacao = "predefined_code" then -- Substitua por código real
+                if DR_CodigoLiberacao = LIBERATION_CODE then
                     DR_CHEGOU <= '0';
                     InternalState <= IDLE;
                 end if;
@@ -95,18 +98,18 @@ begin
     end process;
 
     -- Timer para controle de 30 segundos
-    process (DR_ENVIAR, Timer)
-    begin
-        if DR_ENVIAR = '1' then
-            if Timer = 30_000_000 then -- Assumindo clock de 1 MHz
-                TimerExpired <= '1';
-            else
-                Timer <= Timer + 1;
-            end if;
-        else
-            Timer <= (others => '0');
-            TimerExpired <= '0';
-        end if;
-    end process;
+--    process (DR_ENVIAR, Timer)
+--    begin
+--        if DR_ENVIAR = '1' then
+--            if Timer = 30_000_000 then -- Assumindo clock de 1 MHz
+--                TimerExpired <= '1';
+--            else
+--                Timer <= Timer + 1;
+--            end if;
+--        else
+--            Timer <= (others => '0');
+--            TimerExpired <= '0';
+--        end if;
+--    end process;
 
 end Behavioral;
