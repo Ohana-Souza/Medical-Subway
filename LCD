@@ -1,131 +1,116 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.STD_LOGIC_ARITH.ALL;
-use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
-entity LCD is
-    Port (
-        DR_TecladoAndar : in std_logic_vector(2 downto 0);  -- 3 bits para representar até 7 andares
-        DR_TecladoQuarto : in std_logic_vector(3 downto 0); -- 4 bits para representar até 15 quartos
-        DR_Porta: in std_logic; 
-        DR_ENVIAR: in std_logic;
-        DR_CodigoLiberação : in std_logic_vector(2 downto 0); -- 3 bits para representar até 7 códigos de liberação
-        DR_Reset : in std_logic;
-        DR_Reset_Emerg : in std_logic;
-        clk : in std_logic;  -- Sinal de clock
-        reset_n : in std_logic;  -- Sinal de reset ativo baixo
-        DR_Emerg_SigOUT : out std_logic;
-        DR_Tecnico : out std_logic;
-        DR_PortaAberta : out std_logic;
-        DR_PortaFechada : out std_logic;
-        DR_CHEGOU : out std_logic;
-        LCD_Message : out std_logic_vector(31 downto 0)  -- Mensagem a ser exibida no display LCD
+entity subwayD is
+    port (
+        DR_TecladoAndar       : in std_logic_vector(2 downto 0);  -- 3 bits para representar até 7 andares
+        DR_TecladoQuarto      : in std_logic_vector(3 downto 0);  -- 4 bits para representar até 15 quartos por andar
+        DR_Porta              : in std_logic;                      -- Porta do metrô
+        DR_ENVIAR             : in std_logic;                      -- Switch para enviar a cápsula
+        DR_CodigoLiberacao    : in std_logic_vector(2 downto 0);  -- 3 bits para código de liberação
+        DR_Reset              : in std_logic;                      -- Switch para reset
+        DR_Reset_Emerg        : in std_logic;                      -- Switch para reset de emergência
+
+        DR_Emerg_SigOUT       : out std_logic;                     -- Sinal de emergência
+        DR_Tecnico            : out std_logic;                     -- Indica que o técnico foi chamado
+        DR_PortaAberta        : out std_logic;                     -- Indica que a porta está aberta
+        DR_PortaFechada       : out std_logic;                     -- Indica que a porta está fechada
+        DR_CHEGOU             : out std_logic                      -- Indica que a cápsula chegou ao destino
     );
-end LCD;
+end entity subwayD;
 
-architecture Behavioral of LCD is
+architecture Behavioral of subwayD is
 
-    type state_type is (IDLE, CHECK_DOOR, SENDING, ARRIVED, EMERGENCY);
-    signal state, next_state : state_type;
-    signal timer : integer := 0;
-    signal arrived : std_logic := '0';
-    signal emergency : std_logic := '0';
+    signal Timer              : unsigned(21 downto 0) := (others => '0'); -- Timer para 3 segundos (assumindo um clock de 1 MHz)
+    signal CapsuleSent        : std_logic := '0';                  -- Sinaliza que a cápsula foi enviada
+    signal CapsuleArrived     : std_logic := '0';                  -- Sinaliza que a cápsula chegou
+    signal TimerExpired       : std_logic := '0';                  -- Sinaliza que o tempo expirou
+    signal InternalState      : std_logic_vector(1 downto 0) := "00"; -- Estado interno da FSM
 
+    -- Constantes de Estado
+    constant IDLE             : std_logic_vector(1 downto 0) := "00";
+    constant SENDING          : std_logic_vector(1 downto 0) := "01";
+    constant STATE_ARRIVED    : std_logic_vector(1 downto 0) := "10";
+    constant EMERGENCY        : std_logic_vector(1 downto 0) := "11";
+
+    -- Constante para código de liberação
+    constant LIBERATION_CODE  : std_logic_vector(2 downto 0) := "101"; -- Substitua por código real
+	 
 begin
 
-    process(clk, reset_n)
+    process (DR_ENVIAR, DR_Porta, DR_Reset, DR_Reset_Emerg, TimerExpired, CapsuleArrived, DR_CodigoLiberacao)
     begin
-        if reset_n = '0' then
-            state <= IDLE;
-            timer <= 0;
-            arrived <= '0';
-            emergency <= '0';
-        elsif rising_edge(clk) then
-            state <= next_state;
+        if DR_Reset = '1' then
+            CapsuleSent <= '0';
+            CapsuleArrived <= '0';
+            Timer <= (others => '0');
+            TimerExpired <= '0';
+            DR_CHEGOU <= '0';
+            DR_Tecnico <= '0';
+            DR_PortaAberta <= '0';
+            DR_PortaFechada <= '0';
+            InternalState <= IDLE;
             
-            -- Contador de tempo para checagem de emergência
-            if state = SENDING then
-                if timer < 300 then
-                    timer <= timer + 1;
-                else
-                    emergency <= '1';
-                end if;
-            else
-                timer <= 0;
-            end if;
+        elsif DR_Reset_Emerg = '1' then
+            DR_Emerg_SigOUT <= '0';
+            DR_Tecnico <= '1';
+            InternalState <= IDLE;
             
-            -- Reset da emergência
-            if DR_Reset_Emerg = '1' then
-                emergency <= '0';
-            end if;
+        else
+            case InternalState is
+                when IDLE =>
+                    if DR_ENVIAR = '1' and DR_Porta = '0' then
+                        CapsuleSent <= '1';
+                        DR_PortaFechada <= '1';
+                        DR_PortaAberta <= '0';
+                        Timer <= (others => '0');
+                        InternalState <= SENDING;
+                    elsif DR_ENVIAR = '1' and DR_Porta = '1' then
+                        DR_PortaFechada <= '0';
+                        DR_PortaAberta <= '1';
+                    end if;
+
+                when SENDING =>
+                    if TimerExpired = '1' then
+                        DR_Emerg_SigOUT <= '1';
+                        InternalState <= EMERGENCY;
+                    elsif CapsuleArrived = '1' then
+                        CapsuleSent <= '0';
+                        DR_CHEGOU <= '1';
+                        InternalState <= STATE_ARRIVED;
+                    end if;
+
+                when STATE_ARRIVED =>
+                    if DR_CodigoLiberacao = LIBERATION_CODE then
+                        DR_CHEGOU <= '0';
+                        InternalState <= IDLE;
+                    end if;
+
+                when EMERGENCY =>
+                    -- Aguardando reset de emergência
+                    null;
+
+                when others =>
+                    InternalState <= IDLE;
+
+            end case;
         end if;
     end process;
 
-    process(state, DR_Porta, DR_ENVIAR, arrived, emergency, DR_Reset)
+    -- Timer para controle de 3 segundos
+    process (InternalState, Timer)
     begin
-        case state is
-            when IDLE =>
-                if DR_Reset = '1' then
-                    next_state <= IDLE;
-                    LCD_Message <= x"00000000";  -- Limpar display
-                    DR_PortaAberta <= '0';
-                    DR_PortaFechada <= '0';
-                    DR_Emerg_SigOUT <= '0';
-                    DR_Tecnico <= '0';
-                    DR_CHEGOU <= '0';
-                elsif DR_ENVIAR = '1' then
-                    next_state <= CHECK_DOOR;
-                else
-                    next_state <= IDLE;
-                end if;
-
-            when CHECK_DOOR =>
-                if DR_Porta = '1' then  -- Porta fechada
-                    next_state <= SENDING;
-                    DR_PortaAberta <= '0';
-                    DR_PortaFechada <= '1';
-                    LCD_Message <= x"504F5254";  -- "PORTA FECHADA"
-                else  -- Porta aberta
-                    next_state <= IDLE;
-                    DR_PortaAberta <= '1';
-                    DR_PortaFechada <= '0';
-                    LCD_Message <= x"504F5241";  -- "PORTA ABERTA"
-                end if;
-
-            when SENDING =>
-                if arrived = '1' then
-                    next_state <= ARRIVED;
-                elsif emergency = '1' then
-                    next_state <= EMERGENCY;
-                else
-                    next_state <= SENDING;
-                end if;
-
-            when ARRIVED =>
-                DR_CHEGOU <= '1';
-                LCD_Message <= x"43484547";  -- "CHEGOU"
-                if DR_CodigoLiberação = "some_value" then  -- Verificar o código de liberação correto
-                    next_state <= IDLE;
-                    DR_CHEGOU <= '0';
-                else
-                    next_state <= ARRIVED;
-                end if;
-
-            when EMERGENCY =>
-                DR_Emerg_SigOUT <= '1';
-                DR_Tecnico <= '1';
-                LCD_Message <= x"4F425354";  -- "OBSTRUÇÃO"
-                if DR_Reset_Emerg = '1' then
-                    next_state <= IDLE;
-                    DR_Emerg_SigOUT <= '0';
-                    DR_Tecnico <= '0';
-                else
-                    next_state <= EMERGENCY;
-                end if;
-
-            when others =>
-                next_state <= IDLE;
-        end case;
+        if InternalState = SENDING then
+            if Timer = 3_000_000 then -- Assumindo clock de 1 MHz
+                TimerExpired <= '1';
+            else
+                Timer <= Timer + 1;
+            end if;
+        else
+            Timer <= (others => '0');
+            TimerExpired <= '0';
+        end if;
     end process;
 
 end Behavioral;
