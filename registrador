@@ -1,37 +1,38 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.STD_LOGIC_ARITH.ALL;
-use IEEE.STD_LOGIC_UNSIGNED.ALL;
+use IEEE.NUMERIC_STD.ALL;
 
-entity RegAndarQuarto is
-    Port (
-        clk : in std_logic;  -- Sinal de clock
-        reset : in std_logic;  -- Sinal de reset
-        enable : in std_logic;  -- Sinal de habilitação para gravação
-        andar_in : in std_logic_vector(2 downto 0);  -- Entrada do andar
-        quarto_in : in std_logic_vector(3 downto 0);  -- Entrada do quarto
-        andar_out : out std_logic_vector(2 downto 0);  -- Saída do andar
-        quarto_out : out std_logic_vector(3 downto 0)  -- Saída do quarto
-    );
-end RegAndarQuarto;
+entity Registrador is
+   generic (
+      W : integer := 4 -- largura do registrador (número de bits)
+   );
+   port (
+      clk         : in std_logic; -- clock
+      REG_Reset   : in std_logic; -- reset
+      REG_Enable  : in std_logic; -- enable
+      REG_DataIN  : in std_logic_vector(W - 1 downto 0); -- dado de entrada
+      REG_DataOUT : out std_logic_vector(W - 1 downto 0) -- dado de saída
+   );
+end Registrador;
 
-architecture Behavioral of RegAndarQuarto is
-    signal andar_reg : std_logic_vector(2 downto 0);
-    signal quarto_reg : std_logic_vector(3 downto 0);
+architecture Behavioral of Registrador is
 begin
-    process(clk, reset)
+    process(clk, REG_Reset)
     begin
-        if reset = '1' then
-            andar_reg <= (others => '0');
-            quarto_reg <= (others => '0');
+        if REG_Reset = '1' then
+            REG_DataOUT <= (others => '0');  -- Reset: saída é zero
         elsif rising_edge(clk) then
-            if enable = '1' then
-                andar_reg <= andar_in;
-                quarto_reg <= quarto_in;
+				if REG_Reset = '1' then					--RESET SÍNCRONO
+					 REG_DataOUT <= (others => '0');  -- Reset: saída é zero
+				elsif rising_edge(clk) then
+					 if REG_Enable = '1' then
+						  REG_DataOUT <= REG_DataIN;  -- Atualiza a saída com a entrada se habilitado
+					 end if;
+				end if;
+
+            if REG_Enable = '1' then
+                REG_DataOUT <= REG_DataIN;  -- Atualiza a saída com a entrada se habilitado
             end if;
         end if;
     end process;
-    
-    andar_out <= andar_reg;
-    quarto_out <= quarto_reg;
 end Behavioral;
