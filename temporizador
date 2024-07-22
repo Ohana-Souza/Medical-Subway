@@ -4,7 +4,7 @@ use ieee.std_logic_unsigned.all;
 
 entity Temporizador is
     generic (
-        frequencia : integer := 1000000; -- Frequência do clock em Hz (1 MHz, por exemplo)
+        frequencia : integer := 25_000_000; -- Frequência do clock em Hz (1 MHz, por exemplo)
         tempo : integer := 30 -- Tempo de temporização em segundos (30 segundos)
     );
     port (
