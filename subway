@@ -3,7 +3,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
 
-entity subway is
+entity Subway_Controladora is
     Port (
         clk                : in STD_LOGIC;                       -- Sinal de entrada de clock
         DR_TecladoAndar    : in STD_LOGIC_VECTOR(2 downto 0);    -- 3 bits para representar até 7 andares
@@ -27,9 +27,9 @@ entity subway is
 		  lcd_e              : out STD_LOGIC;                      -- LCD Enable
 		  lcd_data           : out STD_LOGIC_VECTOR(7 downto 0)    -- LCD Data Bus
     );
-end entity subway;
+end entity Subway_Controladora;
 
-architecture Behavioral of subway is
+architecture Behavioral of Subway_Controladora is
 
     type state_type is (IDLE, WAITING, SENDING, ARRIVED, EMERGENCY);
     signal state : state_type := IDLE;
