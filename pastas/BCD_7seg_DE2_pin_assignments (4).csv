@@ -1,0 +1,37 @@
+To,Location;;
+entrada[0],PIN_N25;;
+entrada[1],PIN_N26;;
+entrada[2],PIN_P25;;
+entrada[3],PIN_AE14;;
+;;
+saida[0],PIN_AF10;;
+saida[1],PIN_AB12;;
+saida[2],PIN_AC12;;
+saida[3],PIN_AD11;;
+saida[4],PIN_AE11;;
+saida[5],PIN_V14;;
+saida[6],PIN_V13    ;;
+;;
+;;
+clk,PIN_N2;;CLOCK 50mHZ
+DR_TecladoAndar[0],PIN_N25;;SW[0]
+DR_TecladoAndar[1],PIN_N26;;SW[1]
+DR_TecladoAndar[2],PIN_P25;;SW[2]
+DR_TecladoQuarto[0],PIN_AD13;;SW[5]
+DR_TecladoQuarto[1],PIN_AC13;;SW[6]
+DR_TecladoQuarto[2],PIN_C13;;SW[7]
+DR_TecladoQuarto[3],PIN_B13;;SW[8]
+DR_Porta,PIN_V2;;SW[17]
+DR_ENVIAR,PIN_U4;;SW[15]
+DR_CodigoLiberacao[0],PIN_N1;;SW[10]
+DR_CodigoLiberacao[1],PIN_P1;;SW[11]
+DR_CodigoLiberacao[2],PIN_P2;;SW[12]
+DR_Reset,PIN_V1;;SW[16]
+DR_Emer_Solucionado,PIN_U3;;SW[14]
+;;
+DR_Emergencia,PIN_AE14;;SW[3]
+DR_PortaFechada,PIN_Y18;LED VERDE;LEDG[7]
+DR_PortaAberta,PIN_AE23;LED VERMELHO;LEDR[0]
+DR_Tecnico,PIN_AC21;LED VERMELHO;LEDR[7]
+DR_CHEGOU,PIN_AF22;LERDE VERDE;LEDG[1]
+DR_Emerg_SigOUT,PIN_AD12;LED VERMELHO;LEDR[17]
